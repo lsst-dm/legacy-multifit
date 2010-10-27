@@ -10,7 +10,7 @@ env = scons.makeEnv("meas_multifitData",
                     [])
 
 # files with the following suffixes are considered data files
-DataFileSuffixSet = set((".fits", ".dat", ".txt"))
+DataFileSuffixSet = set((".fits", ".boost", ".txt"))
 
 def getInstallList(basePath):
     """Make an install list for all data files in or below the specified base path, plus ups table files.
