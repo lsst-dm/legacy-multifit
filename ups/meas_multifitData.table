@@ -1,3 +1,4 @@
-if (type == build) {
-    setupRequired(scons)
-}
+setupRequired("meas_algorithms" >= 4.3.1.0)
+
+envAppend(PATH, ${PRODUCT_DIR}/bin)
+envAppend(PYTHONPATH, ${PRODUCT_DIR}/bin)
