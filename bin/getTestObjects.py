@@ -10,6 +10,7 @@ import lsst.afw.detection as afwDet
 import lsst.afw.geom.ellipses
 from lsst.pex.harness.IOStage import OutputStage
 from lsst.pex.harness.simpleStageTester import SimpleStageTester
+from lsst.meas.multifitData import DatasetMapper
 
 import os
 import os.path
@@ -23,20 +24,13 @@ def run():
     else:
         raise "Need a butler root"
 
-    if (len(sys.argv)>2):
-        prefix = sys.argv[2]
-    else: prefix = "."
-
     bf = ButlerFactory(mapper=DatasetMapper())
     outButler = bf.create()
-    """
-    try:
-        os.makedirs(outPath)
-    except os.error:
-        raise "Conflict: requested output directory already exists."
-    """
-    if (len(sys.argv)>3):
-        random.seed(int(sys.argv[3]))
+
+    if (len(sys.argv)>2):
+        nOutput = int(sys.argv[2])
+    else:
+        nOutput = -1
 
     butlerPolicy = Policy()
     butlerPolicy.set("mapperName", "lsst.obs.lsstSim.LsstSimMapper")
@@ -44,53 +38,36 @@ def run():
     butlerPolicy.set("mapperPolicy.root", root)
     bf = ButlerFactory(butlerPolicy)
     butler = bf.create()
-    """
-    outputPolicy = Policy()
-    outputPolicy.add("parameters.additionalData", "doFootprints=doFootprints")
+    
+    query =  butler.queryMetadata("calexp", "sensor", ("visit", "raft", "sensor"))
+    if(nOutput<0):
+        nOutput = len(query)
 
-    fmt = "parameters.outputItems.%s%i.storagePolicy"
-    clipboard = {"doFootprints":True}
-    """
-    datasetId =0
-    for (v,r,s) in butler.queryMetadata("raw", "sensor", ("visit", "raft", "sensor")):
+    i = 0
+    datasetId = 0
+    while True:
+        if(i >= len(query)):
+            break
+        (v,r,s) = query[i]
+        i += 1
         if butler.datasetExists("src", visit=v, raft=r, sensor=s) and \
-               butler.datasetExists("psf", visit=v, raft=r, sensor=s) and \
-               butler.datasetExists("calexp", visit=v, raft=r, sensor=s):
+                butler.datasetExists("psf", visit=v, raft=r, sensor=s) and \
+                butler.datasetExists("calexp", visit=v, raft=r, sensor=s):
+            psv  = butler.get("src", visit=v, raft=r, sensor=s)
+            if len(psv.getSources()) > 0:
+                print "datasetId", datasetId
+                print "i", i
+                exposure = butler.get("calexp", visit=v, raft=r, sensor=s)
+                psf = butler.get("psf", visit=v, raft=r, sensor=s)
 
-            exposure = butler.get("calexp", visit=v, raft=r, sensor=s)
-            psf = butler.get("psf", visit=v, raft=r, sensor=s)
-            sources = butler.get("src", visit=v, raft=r, sensor=s).getSources()
-                
-            #try:
-            (lowPs, highPs, lowSg, highSg) = processDataset(exposure, psf, sources)
-            #except:
-            #    print >> sys.stderr, "Skiping dataset v=%i r=%s s=%s"%(v, r, s)
-            #    continue
-            
-            outButler.put(psf, "psf", id=datasetId)
-            for (src, dsType) in zip((lowPs, highPs, lowSg, highSg), ("lowPs", "highPs", "lowSg", "highSg")):
-                if not src:
-                    continue
-                sub = makeCutout(src, exposure)
-                psv = makePsv(src)
-                outButler.put(sub, "exp",  id=datasetId, dsType=dsType)
-                outButler.put(psv, "src",  id=datasetId, dsType=dsType)
-
-            datasetId += 1
-
-            """
-            datasetPath = os.path.join(outPath, "%i"%datasetId)
-            os.makedirs(datasetPath)
-            addOutputPolicy(outputPolicy, datasetPath, datasetId)
-            addClipboard(clipboard, datasetId, exposure, psf, lowPs, highPs, lowSg, highSg)
+                outButler.put(psf, "psf", id=datasetId)
+                outButler.put(exposure, "exp", id=datasetId)
+                outButler.put(psv, "src", id=datasetId)
+                datasetId += 1
+                if(datasetId >= nOutput):
+                    break;
 
 
-
-    outputStage = OutputStage(outputPolicy)
-    sst = SimpleStageTester()
-    sst.addStage(outputStage)
-    sst.runWorker(clipboard)
-    """
 
 def makeCutout(src, exposure):
     bbox = src.getFootprint().getBBox()
@@ -100,36 +77,6 @@ def makePsv(src):
     sourceSet = afwDet.SourceSet()
     sourceSet.append(src)
     return afwDet.PersistableSourceVector(sourceSet)
-
-def addOutputPolicy(policy, outPath, datasetId):
-    fmt = "parameters.outputItems.%s%s%i.storagePolicy"
-    for srcType in ["lowPs", "highPs", "lowSg", "highSg"]:
-        expLoc = os.path.join(outPath, srcType+"Exp.fits")
-        srcLoc = os.path.join(outPath, srcType+"Src.boost")
-        
-        policy.add(fmt%(srcType, "Exp", datasetId) + ".storage", "FitsStorage")
-        policy.add(fmt%(srcType, "Exp", datasetId) + ".location", expLoc)
-
-        policy.add(fmt%(srcType, "Src", datasetId) + ".storage", "BoostStorage")
-        policy.add(fmt%(srcType, "Src", datasetId) + ".location", srcLoc)
-
-    psfLoc = os.path.join(outPath, "psf.boost")
-    policy.add(fmt%("psf", "", datasetId) + ".storage", "BoostStorage")
-    policy.add(fmt%("psf", "", datasetId) + ".location", psfLoc)
-
-def addClipboard(clipboard, datasetId, exposure, psf, lowPs, highPs, lowSg, highSg):
-    clipboard["lowPsExp%i"%datasetId]= makeCutout(lowPs, exposure)
-    clipboard["highPsExp%i"%datasetId]= makeCutout(highPs, exposure)
-    clipboard["lowSgExp%i"%datasetId]= makeCutout(lowSg, exposure)
-    clipboard["highSgExp%i"%datasetId]= makeCutout(highSg, exposure)
-
-    clipboard["psf%i"%datasetId]= psf
-
-    clipboard["lowPsSrc%i"%datasetId]  = makePsv(lowPs)
-    clipboard["highPsSrc%i"%datasetId] = makePsv(highPs)
-    clipboard["lowSgSrc%i"%datasetId]  = makePsv(lowSg)
-    clipboard["highSgSrc%i"%datasetId] = makePsv(highSg)
-
 
 def processDataset(exposure, psf, sources):
     nLowPs = 0

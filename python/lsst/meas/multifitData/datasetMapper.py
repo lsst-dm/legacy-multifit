@@ -15,33 +15,33 @@ class DatasetMapper(dafPer.Mapper):
             self.root = os.path.join(productDir, "datasets")
 
     def map_psf(self, dataId):
-        dir = "%(id)i"%dataId
-        path = os.path.join(self.root, dir, "psf.boost")
+        file = "psf%(id)i.boost"%dataId
+        path = os.path.join(self.root, file)
         return dafPer.ButlerLocation(\
                 "lsst.afw.detection.Psf", 
                 "Psf",
                 "BoostStorage", path, {})
 
     def map_exp(self, dataId):        
-        dir = "%(id)i"%dataId
-        file = "%(dsType)sExp.fits"%dataId
-        path = os.path.join(self.root, dir, file)
+        file = "exp%(id)i.fits"%dataId
+        path = os.path.join(self.root, file)
         return dafPer.ButlerLocation(\
                 "lsst.afw.image.ExposureD", 
                 "ExposureD",
                 "FitsStorage", path, {})
     
     def map_src(self, dataId):
-        dir = "%(id)i"%dataId
-        file = "%(dsType)sSrc.boost"%dataId
-        path = os.path.join(self.root, dir, file)        
+        file = "src%(id)i.boost"%dataId
+        path = os.path.join(self.root, file)        
         return dafPer.ButlerLocation(\
                 "lsst.afw.detection.PersistableSourceVector", 
                 "PersistableSourceVector",
                 "BoostStorage", path, {"doFootprints": True})
        
     def std_src(self, item, dataId):
-        return item.getSources()[0]
+        return item.getSources()
 
     def keys(self):
-        return ["id", "dsType"]
+        return ["id"]
+
+ 
