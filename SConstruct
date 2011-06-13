@@ -13,6 +13,7 @@ env = scons.makeEnv("meas_multifitData",
 env['IgnoreFiles']=r"(~$|\.pyc$|^\.svn$|\.os$)"
 
 Alias("install", [env.InstallEups(env['prefix'] + "/ups", glob.glob("ups/*.table")),
+                   env.Install(env['prefix'], "python"),
                    env.Install(env['prefix'], "bin"),
                    env.Install(env['prefix'], "datasets")])
 

@@ -26,8 +26,8 @@ class DatasetMapper(dafPer.Mapper):
         file = "exp%(id)i.fits"%dataId
         path = os.path.join(self.root, file)
         return dafPer.ButlerLocation(\
-                "lsst.afw.image.ExposureD", 
-                "ExposureD",
+                "lsst.afw.image.ExposureF", 
+                "ExposureF",
                 "FitsStorage", path, {})
     
     def map_src(self, dataId):
